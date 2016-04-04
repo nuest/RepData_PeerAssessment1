@@ -5,21 +5,166 @@ output:
     keep_md: true
 ---
 
+<!--
+source of this file: https://github.com/nuest/RepData_PeerAssessment1
+
+build with knitr::knit2html() does not work, use rmarkdown::render("PA1_template.Rmd")
+
+working directory is assumed to be the one with this file
+list.files(getwd())
+-->
 
 ## Loading and preprocessing the data
+```{r, echo=TRUE}
+datafile <- "./activity.csv"
+if(!file.exists(datafile)) {
+  utils::unzip("./activity.zip")
+}
+activity_rawdata <- read.csv(file = datafile)
+str(activity_rawdata)
+head(activity_rawdata)
+tail(activity_rawdata[1000:1100,])
+```
 
+## What is the mean total number of steps taken per day?
 
+### 1. Total number of steps per day
 
-## What is mean total number of steps taken per day?
+```{r, echo=TRUE}
+library(dplyr, quietly = TRUE, warn.conflicts = FALSE)
+activity_stepsperday <- activity_rawdata %>% group_by(date) %>% summarise(steps = sum(steps))
+head(activity_stepsperday)
+```
 
+### 2. Histogram
 
+```{r, echo=TRUE}
+hist(activity_stepsperday$steps, breaks = 24)
+```
+
+### 3. Mean and median
+
+```{r, echo=TRUE}
+mean_steps_per_day <- mean(activity_stepsperday$steps, na.rm = TRUE)
+mean_steps_per_day
+median_steps_per_day <- median(activity_stepsperday$steps, na.rm = TRUE)
+median_steps_per_day
+```
+
+The rounded mean number of steps per day is `r toString(round(mean_steps_per_day))`, the median is `r median_steps_per_day`.
 
 ## What is the average daily activity pattern?
 
+### 1. Time series plot
 
+```{r, echo=TRUE}
+activity_stepsperinterval <- activity_rawdata %>% group_by(interval) %>% summarise(steps = mean(steps, na.rm = TRUE))
+summary(activity_stepsperinterval)
+head(activity_stepsperinterval)
+plot(x = activity_stepsperinterval$interval, y = activity_stepsperinterval$steps, type = "l",
+     xlab = "Minute in the day", ylab = "Average number of steps", main = "Average number of steps",
+     sub = paste("[Averaged over", dim(activity_stepsperday)[1], "days]"))
+
+top_intervals <- activity_stepsperinterval %>% top_n(steps, n = 3)
+```
+
+### 2. Top interval
+
+The 5-min interval with the maximum number of steps (on average across all days) is the interval starting at minute `r top_intervals[[1,1]]`.
 
 ## Imputing missing values
 
+### 1. Number of missing values
 
+```{r, echo=TRUE}
+sum(is.na(activity_rawdata$steps))
+```
+
+### 2. Strategy for missing values
+
+```{r, echo=TRUE}
+replace_na_with_interval_mean <- function(x) {
+  replacement_value <- x[["steps"]]
+  if(is.na(x[["steps"]])) {
+    # fill in average for that interval
+    #cat(as.numeric(x[["interval"]]), "\n")
+    replacement_value <- activity_stepsperinterval[activity_stepsperinterval$interval==as.numeric(x[["interval"]]),2]$steps
+    #cat(x, "using replacement", replacement_value, "\n")
+    #steps <- as.numeric(replacement_value)
+  }
+  as.numeric(replacement_value)
+}
+```
+
+### 3. Filled data set
+
+```{r, echo=TRUE}
+activity_filledsteps <- apply(X = activity_rawdata, MARGIN = 1, FUN = replace_na_with_interval_mean)
+# replace steps values
+activity_filled <- activity_rawdata
+activity_filled[,c("steps")] <- activity_filledsteps
+
+# no NAs?
+sum(is.na(activity_filled$steps))
+summary(activity_filledsteps)
+```
+
+### 4. Analysis of filled dataset
+
+```{r, echo=TRUE}
+# create histrogram
+activity_filled_stepsperday <- activity_filled %>% group_by(date) %>% summarise(steps = sum(steps))
+hist(activity_filled_stepsperday$steps, breaks = 24)
+```
+
+Mean and median of the filled dataset:
+
+```{r, echo=TRUE}
+mean(activity_filled_stepsperday$steps)
+median(activity_filled_stepsperday$steps)
+```
+
+The values do not differ considerably, the mean stayed the same and the median adjusted to the mean.
+
+The total number of steps changed from `r format(sum(activity_rawdata$steps, na.rm = TRUE))` to `r format(sum(activity_filled$steps))` (factor of `r sum(activity_filled$steps)/sum(activity_rawdata$steps, na.rm = TRUE)`).
+
+<!--
+```{r}
+plot(x = activity_stepsperday$steps, y = activity_filled_stepsperday$steps, 
+     title = "Steps per day vs. filled steps per day")
+```
+-->
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+# replace day name with our own category
+replace_day_with_type <- function(day) {
+  #cat(day, day %in% c("Saturday", "Sunday"), "\n")
+  if(day %in% c("Saturday", "Sunday")) {
+    return("weekend")
+  }
+  else {
+    return("weekday")
+  }
+}
+
+# set the day
+activity_pattern <- cbind(activity_filled, day = 
+                            sapply(X = weekdays(as.Date(activity_filled$date)),
+                                   FUN = replace_day_with_type))
+str(activity_pattern)
+average_weekdays <- mean(activity_pattern[activity_pattern$day == "weekday",c("steps")], na.rm = TRUE)
+average_weekend <- mean(activity_pattern[activity_pattern$day == "weekend",c("steps")], na.rm = TRUE)
+
+#activity_daytype <- activity_pattern %>% group_by(day) %>% summarise(steps = mean(steps, na.rm = TRUE))
+#str(activity_daytype)
+plot(x = activity_pattern[activity_pattern$day == "weekday",c("interval")],
+     y = activity_pattern[activity_pattern$day == "weekday",c("steps")],
+     type = "l",
+     xlab = "Minute in the day", ylab = "Number of steps", main = "Number of steps on weekdays")
+plot(x = activity_pattern[activity_pattern$day == "weekend",c("interval")],
+     y = activity_pattern[activity_pattern$day == "weekend",c("steps")],
+     type = "l",
+     xlab = "Minute in the day", ylab = "Number of steps", main = "Number of steps on weekends")
+```
