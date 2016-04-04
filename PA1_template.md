@@ -250,30 +250,93 @@ median(activity_filled_stepsperday$steps)
 ## [1] 10766.19
 ```
 
-The values differ considerably, especially the mean changed by a factor of 1.
+The values do not differ considerably, the mean stayed the same and the median adjusted to the mean.
+
 The total number of steps changed from 570608 to 656737.5 (factor of 1.1509434).
 
+<!--
 
 ```r
-plot(x = activity_stepsperday$steps, y = log(activity_filled_stepsperday$steps))
+plot(x = activity_stepsperday$steps, y = activity_filled_stepsperday$steps, 
+     title = "Steps per day vs. filled steps per day")
+```
+
+```
+## Warning in plot.window(...): "title" is not a graphical parameter
+```
+
+```
+## Warning in plot.xy(xy, type, ...): "title" is not a graphical parameter
+```
+
+```
+## Warning in axis(side = side, at = at, labels = labels, ...): "title" is not
+## a graphical parameter
+
+## Warning in axis(side = side, at = at, labels = labels, ...): "title" is not
+## a graphical parameter
+```
+
+```
+## Warning in box(...): "title" is not a graphical parameter
+```
+
+```
+## Warning in title(...): "title" is not a graphical parameter
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-11-1.png)
-
-
+-->
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
 
 ```r
-activity_pattern <- cbind(activity_stepsperday, weekdays(as.Date(activity_stepsperday$date)))
+# replace day name with our own category
+replace_day_with_type <- function(day) {
+  #cat(day, day %in% c("Saturday", "Sunday"), "\n")
+  if(day %in% c("Saturday", "Sunday")) {
+    return("weekend")
+  }
+  else {
+    return("weekday")
+  }
+}
+
+# set the day
+activity_pattern <- cbind(activity_filled, day = 
+                            sapply(X = weekdays(as.Date(activity_filled$date)),
+                                   FUN = replace_day_with_type))
 str(activity_pattern)
 ```
 
 ```
-## 'data.frame':	61 obs. of  3 variables:
-##  $ date                                        : Factor w/ 61 levels "2012-10-01","2012-10-02",..: 1 2 3 4 5 6 7 8 9 10 ...
-##  $ steps                                       : int  NA 126 11352 12116 13294 15420 11015 NA 12811 9900 ...
-##  $ weekdays(as.Date(activity_stepsperday$date)): Factor w/ 7 levels "Friday","Monday",..: 2 6 7 5 1 3 4 2 6 7 ...
+## 'data.frame':	17568 obs. of  4 variables:
+##  $ steps   : num  1.717 0.3396 0.1321 0.1509 0.0755 ...
+##  $ date    : Factor w/ 61 levels "2012-10-01","2012-10-02",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ interval: int  0 5 10 15 20 25 30 35 40 45 ...
+##  $ day     : Factor w/ 2 levels "weekday","weekend": 1 1 1 1 1 1 1 1 1 1 ...
 ```
-http://stats.stackexchange.com/questions/8225/how-to-summarize-data-by-group-in-r
+
+```r
+average_weekdays <- mean(activity_pattern[activity_pattern$day == "weekday",c("steps")], na.rm = TRUE)
+average_weekend <- mean(activity_pattern[activity_pattern$day == "weekend",c("steps")], na.rm = TRUE)
+
+#activity_daytype <- activity_pattern %>% group_by(day) %>% summarise(steps = mean(steps, na.rm = TRUE))
+#str(activity_daytype)
+plot(x = activity_pattern[activity_pattern$day == "weekday",c("interval")],
+     y = activity_pattern[activity_pattern$day == "weekday",c("steps")],
+     type = "l",
+     xlab = "Minute in the day", ylab = "Number of steps", main = "Number of steps on weekdays")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-12-1.png)
+
+```r
+plot(x = activity_pattern[activity_pattern$day == "weekend",c("interval")],
+     y = activity_pattern[activity_pattern$day == "weekend",c("steps")],
+     type = "l",
+     xlab = "Minute in the day", ylab = "Number of steps", main = "Number of steps on weekends")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-12-2.png)
